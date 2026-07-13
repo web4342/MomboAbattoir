@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meat Inspection Records</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; background: #f4f7f6; width: 100%; box-sizing: border-box; }
+        h2 { text-align: center; color: var(--primary); margin: 10px 0; }
+        
+        .header-bar { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .top-row { display: flex; justify-content: space-between; margin-bottom: 15px; gap: 10px; flex-wrap: wrap; }
+        .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+        .filter-item label { display: block; font-size: 11px; margin-bottom: 3px; font-weight: bold; color: #555; }
+        .filter-item input, .filter-item select { width: 100%; padding: 7px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }
+
+        .table-container { 
+            background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            overflow: auto; max-height: 70vh; width: 100%; 
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background-color: #f9f9f9; }
+        
+        .hidden-col { display: none; }
+        .pic-cell { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
+
+        #imageLightbox {
+            display: none; position: fixed; z-index: 3000; left: 0; top: 0; 
+            width: 100%; height: 100%; background: rgba(0,0,0,0.85); 
+            justify-content: center; align-items: center; cursor: zoom-out;
+        }
+        #imageLightbox img { max-width: 90%; max-height: 90%; border-radius: 10px; }
+
+        #inspectionModal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
+        .modal-content { background: white; margin: 30px auto; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .owner-input-wrap, .input-with-suggestions { position: relative; }
+        .suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); max-height: 180px; overflow-y: auto; display: none; margin-top: 4px; }
+        .suggestion-item { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        .suggestion-item:hover { background: #f7f9fb; }
+        #imgPreview { max-width: 100%; max-height: 180px; display: none; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+
+        button { cursor: pointer; border: none; padding: 10px 15px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: 0.2s; }
+        .btn-add { background: #27ae60; color: white; }
+        .btn-toggle { background: #8e44ad; color: white; }
+        .btn-reset { background: #7f8c8d; color: white; }
+        .btn-report { background: #2980b9; color: white; }
+        .btn-edit { background: #f39c12; color: white; margin-right: 5px; }
+        .btn-delete { background: #e74c3c; color: white; }
+        #reportModal { display: none; position: fixed; z-index: 2500; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .report-content { background: white; margin: 0 auto 30px; padding: 24px; border-radius: 12px; max-width: 1000px; box-shadow: 0 8px 28px rgba(0,0,0,0.2); }
+        .report-header { border-bottom: 2px solid #eee; padding-bottom: 12px; margin-bottom: 16px; }
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .report-card { background: #f8fbff; border: 1px solid #e5ecf4; border-radius: 8px; padding: 12px; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .report-table th, .report-table td { border: 1px solid #e4e8ee; padding: 8px; font-size: 13px; }
+        .report-table th { background: #f0f5fb; }
+        .report-case { border: 1px solid #e6ebf2; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fcfdff; }
+        .report-image { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; margin-top: 8px; }
+        @media print { body { background: white; } .no-print { display: none !important; } .report-content { box-shadow: none; border: none; margin: 0; max-width: none; } }
+        #scrollToLast { position: fixed; bottom: 25px; right: 25px; z-index: 100; background: var(--accent); color: white; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+
+    <h2>Mombo Meat Inspection Records</h2>
+
+    <div class="header-bar">
+        <div class="top-row">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button id="addBtn" class="btn-add" onclick="openModal()">+ Add New Record</button>
+                <div id="welcomeMsg" style="font-weight:700; margin-left:8px;"></div>
+            </div>
+            <div class="no-print">
+                <button class="btn-report" onclick="openReport()">Get Report</button>
+                <button class="btn-toggle" onclick="toggleCols()">View Details / Pics</button>
+                <button class="btn-reset" onclick="resetFilters()">Reset All</button>
+            </div>
+        </div>
+        <div class="filters-grid">
+            <div class="filter-item"><label>Owner:</label><input type="text" id="fOwner" oninput="applyFilters()" placeholder="Filter name..."></div>
+            <div class="filter-item"><label>Month:</label>
+                <select id="fMonth" onchange="applyFilters()">
+                    <option value="">All</option>
+                    <option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option>
+                    <option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option>
+                    <option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                </select>
+            </div>
+            <div class="filter-item"><label>Start Date:</label><input type="date" id="fDateStart" onchange="applyFilters()"></div>
+            <div class="filter-item"><label>End Date:</label><input type="date" id="fDateEnd" onchange="applyFilters()"></div>
+            <div class="filter-item"><label>Week #:</label><input type="number" id="fWeek" oninput="applyFilters()"></div>
+            <div class="filter-item"><label>Animal:</label>
+                <select id="fAnimal" onchange="applyFilters()">
+                    <option value="">All</option><option value="Cattle">Cattle</option><option value="Goat">Goat</option><option value="Sheep">Sheep</option>
+                </select>
+            </div>
+            <div class="filter-item"><label>Decision:</label>
+                <select id="fDecision" onchange="applyFilters()">
+                    <option value="">All</option>
+                    <option value="Full pass">Pass</option>
+                    <option value="Full Condemn">Condemn</option>
+                    <option value="Partial condemned">Partial</option>
+                </select>
+            </div>
+        </div>
+        <div style="margin-top:12px; font-size:14px; font-weight:bold;">Total Records: <span id="totalCount">0</span></div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:40px">SN</th>
+                    <th>OWNER</th>
+                    <th class="extra-col hidden-col">UID</th>
+                    <th style="width:105px">DATE</th>
+                    <th>WK</th>
+                    <th>ANIMAL</th>
+                    <th class="extra-col hidden-col">BREED</th>
+                    <th>COLOR</th>
+                    <th>SEX</th>
+                    <th>DECISION</th>
+                    <th>CONDEMNED</th>
+                    <th class="extra-col hidden-col">REASON</th>
+                    <th class="extra-col hidden-col">PIC</th>
+                    <th style="width:115px">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div id="inspectionModal">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="margin-top:0">Inspection Entry</h3>
+            <form id="inspectionForm">
+                <input type="hidden" id="editKey">
+                <div class="form-group">
+                    <label>Owner</label>
+                    <div class="owner-input-wrap">
+                        <input type="text" id="owner" autocomplete="off" required>
+                        <div id="ownerSuggestions" class="suggestions"></div>
+                    </div>
+                </div>
+                <div class="form-group"><label>UID</label><input type="text" id="uid"></div>
+                <div class="form-group"><label>Date</label><input type="date" id="date" required></div>
+                <div class="form-group">
+                    <label>Animal</label>
+                    <select id="animal"><option value="Cattle">Cattle</option><option value="Goat">Goat</option><option value="Sheep">Sheep</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Breed</label>
+                    <div class="input-with-suggestions">
+                        <input type="text" id="breed" autocomplete="off">
+                        <div id="breedSuggestions" class="suggestions"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Color</label>
+                    <div class="input-with-suggestions">
+                        <input type="text" id="color" autocomplete="off">
+                        <div id="colorSuggestions" class="suggestions"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Sex</label>
+                    <select id="sex"><option value="Male">Male</option><option value="Female">Female</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Decision</label>
+                    <select id="decision">
+                        <option value="Full pass">Full pass</option>
+                        <option value="Full Condemn">Full Condemn</option>
+                        <option value="Partial condemned">Partial condemned</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Condemned Part</label><input type="text" id="condemnedPart"></div>
+                <div class="form-group"><label>Reason for Condemnation</label><input type="text" id="reason"></div>
+                
+                <!-- Modified Image form group layout to incorporate a Remove button -->
+                <div class="form-group">
+                    <label>Picture</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="file" id="picFile" accept="image/*" onchange="previewImage(this)" style="flex: 1;">
+                        <button type="button" id="removePicBtn" class="btn-delete" style="padding: 5px 12px; display: none;" onclick="removePicture()">Remove</button>
+                    </div>
+                </div>
+                <img id="imgPreview" src="">
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" id="saveBtn" class="btn-add" style="flex: 1;">Save</button>
+                    <button type="submit" id="updateBtn" class="btn-edit" style="flex: 1; display: none;">Update</button>
+                    <button type="button" class="btn-reset" onclick="closeModal()" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="reportModal" class="no-print">
+        <div class="report-content">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">Report Preview</h3>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-report" onclick="downloadReportPdf()">Download PDF</button>
+                    <button class="btn-reset" onclick="closeReport()">Close</button>
+                </div>
+            </div>
+            <div id="reportContent"></div>
+        </div>
+    </div>
+
+    <div id="imageLightbox" onclick="this.style.display='none'">
+        <img id="lightboxImg" src="">
+    </div>
+
+    <button id="scrollToLast">&#8595;</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, push, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2Jfm4Oj1vwHPQGGLzfKOCXAakFFxOp-M",
+            authDomain: "abbatoirmombo.firebaseapp.com",
+            projectId: "abbatoirmombo",
+            databaseURL: "https://abbatoirmombo-default-rtdb.firebaseio.com"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const dbRef = ref(db, 'inspections');
+        const membersRef = ref(db, 'memberIDs');
+        const abattRef = ref(db, 'abattUsers');
+        let allData = [];
+        let showMore = false;
+        let memberOptions = [];
+        let currentFilteredData = [];
+        let abattUsers = {};
+        let currentUser = null;
+        let authDone = false;
+        const breedOptions = ['friesian','jersey','gurnsey','SHZ','bhp','SEA','dorper','boer','anglo-nubian','galla'];
+        const colorOptions = ['black','red','grey','white','b & w','b & r','b & g'];
+
+        const fmtDate = (s) => s ? s.split('-').reverse().join('-') : '-';
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const getWeek = (d) => {
+            let dt = new Date(d);
+            if(isNaN(dt)) return '-';
+            dt.setHours(0,0,0,0);
+            dt.setDate(dt.getDate() + 4 - (dt.getDay()||7));
+            return Math.ceil((((dt - new Date(dt.getFullYear(),0,1))/8.64e7)+1)/7);
+        };
+
+        const normalizeMemberName = (value = '') => (value || '').toString().trim().toLowerCase();
+
+        const renderOwnerSuggestions = (query = '') => {
+            const suggestionsBox = document.getElementById('ownerSuggestions');
+            const cleanQuery = normalizeMemberName(query);
+            if (!cleanQuery) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = 'none'; return; }
+            const matches = memberOptions.filter(member => normalizeMemberName(member.name).includes(cleanQuery)).slice(0, 8);
+            if (!matches.length) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = 'none'; return; }
+            suggestionsBox.innerHTML = matches.map(member => `
+                <div class="suggestion-item" onclick="selectOwnerSuggestion('${(member.name || '').replace(/'/g, "\\'")}', '${(member.uid || '').replace(/'/g, "\\'")}')">
+                    ${member.name}${member.uid ? ` - ${member.uid}` : ''}
+                </div>
+            `).join('');
+            suggestionsBox.style.display = 'block';
+        };
+
+        window.selectOwnerSuggestion = (name, uid) => {
+            document.getElementById('owner').value = name || '';
+            document.getElementById('uid').value = uid || '';
+            document.getElementById('ownerSuggestions').style.display = 'none';
+        };
+
+        const clearOwnerSuggestions = () => {
+            const suggestionsBox = document.getElementById('ownerSuggestions');
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.style.display = 'none';
+        };
+
+        const renderGenericSuggestions = (inputId, suggestionsBoxId, options, query = '') => {
+            const input = document.getElementById(inputId);
+            const suggestionsBox = document.getElementById(suggestionsBoxId);
+            const cleanQuery = (query || input?.value || '').toString().trim().toLowerCase();
+            if (!cleanQuery) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = 'none'; return; }
+            const matches = options.filter(option => option.toLowerCase().includes(cleanQuery)).slice(0, 8);
+            if (!matches.length) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = 'none'; return; }
+            suggestionsBox.innerHTML = matches.map(option => `
+                <div class="suggestion-item" onclick="selectGenericSuggestion('${inputId}', '${option.replace(/'/g, "\\'")}')">${option}</div>
+            `).join('');
+            suggestionsBox.style.display = 'block';
+        };
+
+        window.selectGenericSuggestion = (inputId, value) => {
+            const input = document.getElementById(inputId);
+            if (input) input.value = value;
+            const suggestionsBoxId = inputId === 'breed' ? 'breedSuggestions' : 'colorSuggestions';
+            const suggestionsBox = document.getElementById(suggestionsBoxId);
+            if (suggestionsBox) suggestionsBox.style.display = 'none';
+        };
+
+        onValue(membersRef, (snapshot) => {
+            const data = snapshot.val() || {};
+            const members = Object.values(data)
+                .map(item => {
+                    const name = item?.fullName || item?.name || item?.owner || '';
+                    const uid = item?.uid || item?.id || '';
+                    return name ? { name: String(name).trim(), uid: String(uid).trim() } : null;
+                })
+                .filter(Boolean);
+            memberOptions = members.filter((member, index, self) =>
+                index === self.findIndex(other => other.name === member.name && other.uid === member.uid)
+            );
+        });
+
+        onValue(abattRef, (snapshot) => {
+            abattUsers = snapshot.val() || {};
+            if (!authDone) { authDone = true; askForUserCode(); }
+        });
+
+        const askForUserCode = () => {
+            const code = prompt('Enter your user code:');
+            if (!code) { document.body.innerHTML = '<div style="padding:30px; font-family:Segoe UI, sans-serif;">Access denied. No code entered.</div>'; return; }
+            const name = abattUsers[code];
+            if (!name) { alert('Access denied. Wrong code.'); document.body.innerHTML = '<div style="padding:30px; font-family:Segoe UI, sans-serif;">Access denied. Invalid code.</div>'; return; }
+            currentUser = { code: String(code), name: String(name), isAdmin: (code === '042' || code === '142') };
+            const welcome = document.getElementById('welcomeMsg');
+            if (welcome) welcome.innerText = `Welcome ${currentUser.name}`;
+            const addBtn = document.getElementById('addBtn');
+            if (addBtn) addBtn.style.display = currentUser.isAdmin ? 'inline-block' : 'none';
+            applyFilters();
+        };
+
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            allData = [];
+            if (data) {
+                Object.keys(data).forEach(key => { allData.push({ key, ...data[key] }); });
+                allData.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+            }
+            applyFilters();
+        });
+
+        const getFilteredData = () => {
+            const fO = document.getElementById('fOwner').value.toLowerCase();
+            const fM = document.getElementById('fMonth').value;
+            const fDStart = document.getElementById('fDateStart').value;
+            const fDEnd = document.getElementById('fDateEnd').value;
+            const fW = document.getElementById('fWeek').value;
+            const fA = document.getElementById('fAnimal').value;
+            const fDs = document.getElementById('fDecision').value;
+            return allData.filter(d => {
+                const month = d.date ? d.date.split('-')[1] : '';
+                return (!fO || (d.owner && d.owner.toLowerCase().includes(fO))) &&
+                    (!fM || month === fM) &&
+                    (!fDStart || (d.date && d.date >= fDStart)) &&
+                    (!fDEnd || (d.date && d.date <= fDEnd)) &&
+                    (!fW || getWeek(d.date) == fW) &&
+                    (!fA || d.animal === fA) &&
+                    (!fDs || d.decision === fDs);
+            });
+        };
+
+        window.applyFilters = () => {
+            const filtered = getFilteredData();
+            currentFilteredData = filtered;
+            const extraClass = showMore ? '' : 'hidden-col';
+            document.getElementById('tableBody').innerHTML = filtered.map((d, i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td>${d.owner || '-'}</td>
+                    <td class="extra-col ${extraClass}">${d.uid || '-'}</td>
+                    <td>${fmtDate(d.date)}</td>
+                    <td>${getWeek(d.date)}</td>
+                    <td>${d.animal || '-'}</td>
+                    <td class="extra-col ${extraClass}">${d.breed || '-'}</td>
+                    <td>${d.color || '-'}</td>
+                    <td>${d.sex || '-'}</td>
+                    <td>${d.decision || '-'}</td>
+                    <td>${d.condemnedPart || '-'}</td>
+                    <td class="extra-col ${extraClass}">${d.reason || '-'}</td>
+                    <td class="extra-col ${extraClass}">
+                        ${d.imageUrl ? `<img src="${d.imageUrl}" class="pic-cell" onclick="viewImage('${d.imageUrl}')">` : '-'}
+                    </td>
+                    <td>
+                        ${ (currentUser && currentUser.isAdmin) ? (`<button class="btn-edit" onclick="editEntry('${d.key}')">Edit</button>
+                        <button class="btn-delete" onclick="deleteEntry('${d.key}')">Del</button>`) : '-' }
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('totalCount').innerText = filtered.length;
+        };
+
+        window.viewImage = (url) => {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('imageLightbox').style.display = 'flex';
+        };
+
+        window.toggleCols = () => {
+            showMore = !showMore;
+            document.querySelectorAll('.extra-col').forEach(el => el.classList.toggle('hidden-col', !showMore));
+        };
+
+        window.resetFilters = () => {
+            ['fOwner','fMonth','fDateStart','fDateEnd','fWeek','fAnimal','fDecision'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.value = "";
+            });
+            window.applyFilters();
+        };
+
+        const getMonthName = (monthValue) => {
+            const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return names[parseInt(monthValue, 10) - 1] || '';
+        };
+
+        const buildReportHtml = (records) => {
+            const fMonth = document.getElementById('fMonth').value;
+            const fWeek = document.getElementById('fWeek').value;
+            const fDateStart = document.getElementById('fDateStart').value;
+            const fDateEnd = document.getElementById('fDateEnd').value;
+            const monthName = fMonth ? getMonthName(fMonth) : '';
+            const currentDate = new Date();
+            const currentMonth = currentDate.toLocaleString('en', { month: 'long', year: 'numeric' });
+            const reportTitle = fWeek ? 'Mombo Slaughter House Weekly Report' : (fMonth ? 'Mombo Slaughter House Monthly Report' : 'Mombo Slaughter House Report');
+            const coverageDates = records.map(r => r.date).filter(Boolean).sort();
+            const dateRange = coverageDates.length ? `${fmtDate(coverageDates[0])} to ${fmtDate(coverageDates[coverageDates.length - 1])}` : 'No date range';
+            const animalSummary = ['Cattle','Goat','Sheep'].map(animal => {
+                const animalRecords = records.filter(r => r.animal === animal);
+                const males = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'male').length;
+                const females = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'female').length;
+                return { animal, males, females, total: animalRecords.length };
+            });
+            const condemnationCases = records.filter(r => (r.decision || '').toLowerCase().includes('condemn') || (r.decision || '').toLowerCase().includes('partial'));
+            const condemnByAnimal = {};
+            condemnationCases.forEach(r => {
+                const animal = r.animal || 'Unknown';
+                if (!condemnByAnimal[animal]) condemnByAnimal[animal] = [];
+                condemnByAnimal[animal].push(r);
+            });
+
+            const buildCaseHtml = (r, idx) => {
+                return '<div style="margin-bottom:12px; padding:10px; background:white; border:1px solid #e4e8ee; border-radius:6px;">' +
+                    '<div style="font-size:12px; color:#556; margin-bottom:8px;">' +
+                    '<strong>Case ' + (idx + 1) + '</strong> - Owner: ' + escapeHtml(r.owner || 'Unknown') + ' - Date: ' + escapeHtml(r.date || 'No date') + '</div>' +
+                    '<table style="width:100%; font-size:13px; margin-bottom:8px;">' +
+                    '<tr><td><strong>Condemned Part:</strong></td><td>' + escapeHtml(r.condemnedPart || 'Not stated') + '</td></tr>' +
+                    '<tr><td><strong>Reason:</strong></td><td>' + escapeHtml(r.reason || (r.decision || 'Inspection finding')) + '</td></tr>' +
+                    '<tr><td><strong>Decision:</strong></td><td>' + escapeHtml(r.decision || '-') + '</td></tr>' +
+                    '</table>' +
+                    (r.imageUrl ? '<img style="width:160px; max-height:120px; object-fit:cover; border-radius:6px; border:1px solid #ddd; margin-top:8px;" src="' + escapeHtml(r.imageUrl) + '" alt="Condemned part image">' : '<div style="font-size:12px; color:#999;">No image attached</div>') +
+                    '</div>';
+            };
+
+            let condemnationHtml = '';
+            if (condemnationCases.length) {
+                condemnationHtml = '<div style="margin-top:12px;">';
+                Object.entries(condemnByAnimal).forEach(([animal, cases]) => {
+                    condemnationHtml += '<div style="margin-bottom:16px; background:#fcfdff; border:1px solid #e6ebf2; border-radius:8px; padding:12px;">';
+                    condemnationHtml += '<h4 style="margin:0 0 10px; color:#2c3e50;">' + escapeHtml(animal) + ' Category (' + cases.length + ' case' + (cases.length > 1 ? 's' : '') + ')</h4>';
+                    cases.forEach((r, idx) => { condemnationHtml += buildCaseHtml(r, idx); });
+                    condemnationHtml += '</div>';
+                });
+                condemnationHtml += '</div>';
+            } else {
+                condemnationHtml = '<div style="margin-top:12px; padding:16px; text-align:center; color:#999; background:#f8fbff; border:1px solid #e5ecf4; border-radius:8px;">No condemnation cases in the current filtered set.</div>';
+            }
+
+            const periodLine = [
+                fWeek ? `Week ${fWeek}` : '',
+                monthName || '',
+                (fDateStart || fDateEnd) ? `Date: ${ (fDateStart && fDateEnd) ? (fmtDate(fDateStart) + ' to ' + fmtDate(fDateEnd)) : fmtDate(fDateStart || fDateEnd) }` : ''
+            ].filter(Boolean).join(' | ');
+
+            return `
+                <div style="border-bottom:2px solid #eee; padding-bottom:12px; margin-bottom:16px;">
+                    <h2 style="margin:0 0 8px; color:#2c3e50; font-size:24px;">${reportTitle}</h2>
+                    ${periodLine ? `<div style="color:#7f8c8d; font-size:14px; margin:8px 0;">${periodLine}</div>` : ''}
+                    <div style="color:#7f8c8d; font-size:14px; margin:8px 0;">Date Coverage: ${dateRange}</div>
+                    <div style="color:#7f8c8d; font-size:14px; margin:8px 0;">Current Period: ${currentMonth}</div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin:16px 0;">
+                    <div style="background:#f8fbff; border:1px solid #e5ecf4; border-radius:8px; padding:12px;"><strong>Total Animals Inspected</strong><div style="font-size:20px; margin-top:8px; color:#27ae60;">${records.length}</div></div>
+                    <div style="background:#f8fbff; border:1px solid #e5ecf4; border-radius:8px; padding:12px;"><strong>Owner Filter</strong><div style="font-size:14px; margin-top:8px;">${escapeHtml(document.getElementById('fOwner').value || 'All Owners')}</div></div>
+                    <div style="background:#f8fbff; border:1px solid #e5ecf4; border-radius:8px; padding:12px;"><strong>Animal Type</strong><div style="font-size:14px; margin-top:8px;">${escapeHtml(document.getElementById('fAnimal').value || 'All Types')}</div></div>
+                </div>
+                <h3 style="margin:24px 0 12px; color:#2c3e50; border-bottom:2px solid #e4e8ee; padding-bottom:8px;">Animal Inspection Summary</h3>
+                <table style="margin-bottom:16px; width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#34495e; color:white;">
+                            <th style="padding:12px; text-align:left; border:1px solid #2c3e50;">Animal Category</th>
+                            <th style="padding:12px; text-align:center; border:1px solid #2c3e50;">Male</th>
+                            <th style="padding:12px; text-align:center; border:1px solid #2c3e50;">Female</th>
+                            <th style="padding:12px; text-align:center; border:1px solid #2c3e50;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${animalSummary.map(item => `<tr><td style="padding:12px; border:1px solid #e4e8ee;"><strong>${escapeHtml(item.animal)}</strong></td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.males}</td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.females}</td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee; font-weight:700; background:#f0f5fb;">${item.total}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+                <h3 style="margin:24px 0 12px; color:#2c3e50; border-bottom:2px solid #e4e8ee; padding-bottom:8px;">Condemnation Analysis</h3>
+                ${condemnationHtml}
+            `;
+        };
+
+        window.openReport = () => {
+            const records = currentFilteredData.length ? currentFilteredData : getFilteredData();
+            document.getElementById('reportContent').innerHTML = buildReportHtml(records);
+            document.getElementById('reportModal').style.display = 'flex';
+        };
+
+        window.closeReport = () => document.getElementById('reportModal').style.display = 'none';
+
+        window.downloadReportPdf = () => {
+            const reportHTML = document.getElementById('reportContent').innerHTML;
+            if (!reportHTML || reportHTML.trim() === '') {
+                alert('No report content to download. Please generate the report first.');
+                return;
+            }
+
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
+            if (!printWindow) {
+                alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
+                return;
+            }
+
+            printWindow.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mombo Meat Inspection Report</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: white;
+            color: #222;
+            padding: 24px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        h2 { color: #2c3e50; font-size: 22px; margin-bottom: 6px; }
+        h3 { color: #2c3e50; font-size: 16px; margin: 20px 0 10px; border-bottom: 2px solid #e4e8ee; padding-bottom: 6px; }
+        h4 { color: #2c3e50; font-size: 14px; margin: 0 0 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { padding: 10px 12px; border: 1px solid #e4e8ee; text-align: left; font-size: 13px; }
+        thead tr th { background: #34495e; color: white; }
+        tbody tr td { background: white; }
+        tbody tr td:last-child { background: #f0f5fb; font-weight: 700; }
+        .report-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+        .report-card { background: #f8fbff; border: 1px solid #e5ecf4; border-radius: 8px; padding: 12px; }
+        .report-card strong { font-size: 13px; color: #555; display: block; margin-bottom: 6px; }
+        .report-card div { font-size: 18px; color: #27ae60; font-weight: 700; }
+        .report-card div.small { font-size: 14px; color: #333; font-weight: 400; }
+        .animal-block { margin-bottom: 16px; background: #fcfdff; border: 1px solid #e6ebf2; border-radius: 8px; padding: 12px; }
+        .case-item { margin-bottom: 12px; padding: 10px; background: white; border: 1px solid #e4e8ee; border-radius: 6px; }
+        .case-meta { font-size: 12px; color: #556; margin-bottom: 8px; }
+        .case-table { width: 100%; font-size: 13px; margin-bottom: 8px; border-collapse: collapse; }
+        .case-table td { padding: 4px 6px; }
+        .case-img { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; margin-top: 8px; display: block; }
+        .no-image { font-size: 12px; color: #999; margin-top: 4px; }
+        .header-block { border-bottom: 2px solid #eee; padding-bottom: 12px; margin-bottom: 16px; }
+        .header-meta { color: #7f8c8d; font-size: 13px; margin: 6px 0; }
+        .no-condemn { margin-top: 12px; padding: 16px; text-align: center; color: #999; background: #f8fbff; border: 1px solid #e5ecf4; border-radius: 8px; }
+        @media print {
+            body { padding: 10px; }
+            .report-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    ${reportHTML}
+</body>
+</html>`);
+
+            printWindow.document.close();
+
+            printWindow.onload = () => {
+                printWindow.focus();
+                printWindow.print();
+            };
+
+            setTimeout(() => {
+                try {
+                    printWindow.focus();
+                    printWindow.print();
+                } catch(e) { }
+            }, 1200);
+        };
+
+        const resizeImageToDataUrl = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxWidth = 900, maxHeight = 900;
+                    let width = img.width, height = img.height;
+                    if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } }
+                    else if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const type = file.type && file.type.includes('png') ? 'image/png' : 'image/jpeg';
+                    resolve(canvas.toDataURL(type, 0.82));
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        window.openModal = (key = null, data = null) => {
+            const form = document.getElementById('inspectionForm');
+            const preview = document.getElementById('imgPreview');
+            const saveBtn = document.getElementById('saveBtn');
+            const updateBtn = document.getElementById('updateBtn');
+            const removePicBtn = document.getElementById('removePicBtn');
+            
+            if (!currentUser) { alert('Not authenticated'); return; }
+            if (!key && !currentUser.isAdmin) { alert('You do not have permission to add records.'); return; }
+            form.reset();
+            clearOwnerSuggestions();
+            document.getElementById('breedSuggestions').style.display = 'none';
+            document.getElementById('colorSuggestions').style.display = 'none';
+            document.getElementById('editKey').value = key || '';
+            document.getElementById('modalTitle').innerText = key ? 'Edit Record' : 'New Entry';
+            saveBtn.style.display = 'inline-block';
+            updateBtn.style.display = key ? 'inline-block' : 'none';
+            if (!currentUser || !currentUser.isAdmin) { saveBtn.style.display = 'none'; updateBtn.style.display = 'none'; }
+            document.getElementById('picFile').value = '';
+            
+            if(data) {
+                ['owner','uid','date','animal','breed','color','sex','decision','condemnedPart','reason'].forEach(k => {
+                    const el = document.getElementById(k); if(el) el.value = data[k] || '';
+                });
+                form.dataset.img = data.imageUrl || '';
+                if(data.imageUrl) { 
+                    preview.src = data.imageUrl; 
+                    preview.style.display = 'block'; 
+                    removePicBtn.style.display = 'inline-block'; // Show remove button if image exists
+                }
+                else { 
+                    preview.style.display = 'none'; 
+                    removePicBtn.style.display = 'none';
+                }
+            } else { 
+                form.dataset.img = ''; 
+                preview.style.display = 'none'; 
+                removePicBtn.style.display = 'none';
+            }
+            document.getElementById('inspectionModal').style.display = 'block';
+        };
+
+        window.closeModal = () => document.getElementById('inspectionModal').style.display = 'none';
+
+        window.previewImage = (input) => {
+            const preview = document.getElementById('imgPreview');
+            const form = document.getElementById('inspectionForm');
+            const removePicBtn = document.getElementById('removePicBtn');
+            if (input.files && input.files[0]) {
+                form.dataset.img = '';
+                const reader = new FileReader();
+                reader.onload = (e) => { 
+                    preview.src = e.target.result; 
+                    preview.style.display = 'block'; 
+                    removePicBtn.style.display = 'inline-block'; // Show remove button on file selection
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
+
+        // Added window scope function to trigger picture removal
+        window.removePicture = () => {
+            const preview = document.getElementById('imgPreview');
+            const form = document.getElementById('inspectionForm');
+            const picFile = document.getElementById('picFile');
+            const removePicBtn = document.getElementById('removePicBtn');
+            
+            picFile.value = ''; // Reset file input element
+            form.dataset.img = ''; // Reset existing base64 string tracking
+            preview.src = '';
+            preview.style.display = 'none';
+            removePicBtn.style.display = 'none';
+        };
+
+        document.getElementById('owner').addEventListener('input', (e) => renderOwnerSuggestions(e.target.value));
+        document.getElementById('owner').addEventListener('focus', (e) => renderOwnerSuggestions(e.target.value));
+        document.getElementById('breed').addEventListener('input', (e) => renderGenericSuggestions('breed', 'breedSuggestions', breedOptions, e.target.value));
+        document.getElementById('breed').addEventListener('focus', (e) => renderGenericSuggestions('breed', 'breedSuggestions', breedOptions, e.target.value));
+        document.getElementById('color').addEventListener('input', (e) => renderGenericSuggestions('color', 'colorSuggestions', colorOptions, e.target.value));
+        document.getElementById('color').addEventListener('focus', (e) => renderGenericSuggestions('color', 'colorSuggestions', colorOptions, e.target.value));
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.owner-input-wrap')) clearOwnerSuggestions();
+            if (!e.target.closest('.input-with-suggestions')) {
+                document.getElementById('breedSuggestions').style.display = 'none';
+                document.getElementById('colorSuggestions').style.display = 'none';
+            }
+        });
+
+        document.getElementById('inspectionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const key = document.getElementById('editKey').value;
+            const file = document.getElementById('picFile').files[0];
+            const form = document.getElementById('inspectionForm');
+            const action = e.submitter && e.submitter.id === 'updateBtn' ? 'update' : 'save';
+            const data = {
+                owner: document.getElementById('owner').value, uid: document.getElementById('uid').value,
+                date: document.getElementById('date').value, animal: document.getElementById('animal').value,
+                breed: document.getElementById('breed').value, color: document.getElementById('color').value,
+                sex: document.getElementById('sex').value, decision: document.getElementById('decision').value,
+                condemnedPart: document.getElementById('condemnedPart').value, reason: document.getElementById('reason').value,
+                imageUrl: form.dataset.img || '',
+                timestamp: Date.now()
+            };
+            const saveAction = async (final) => {
+                try {
+                    if (action === 'update' && key) { await update(ref(db, 'inspections/' + key), final); }
+                    else { await push(dbRef, final); }
+                    window.closeModal();
+                } catch (err) { alert("Error saving data"); }
+            };
+            if (file) {
+                try { data.imageUrl = await resizeImageToDataUrl(file); await saveAction(data); }
+                catch (err) { alert("Image could not be prepared. Please try another image."); }
+            } else { saveAction(data); }
+        });
+
+        window.editEntry = (k) => {
+            if (!currentUser || !currentUser.isAdmin) { alert('You do not have permission to edit records.'); return; }
+            window.openModal(k, allData.find(x => x.key === k));
+        };
+        window.deleteEntry = (k) => {
+            if (!currentUser || !currentUser.isAdmin) { alert('You do not have permission to delete records.'); return; }
+            if (confirm('Delete record?')) remove(ref(db, 'inspections/'+k));
+        };
+
+        document.getElementById('scrollToLast').addEventListener('click', () => {
+            const container = document.querySelector('.table-container');
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        });
+    </script>
+</body>
+</html>
