@@ -25,14 +25,26 @@
         tr:hover { background-color: #f9f9f9; }
         
         .hidden-col { display: none; }
-        .pic-cell { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
+        
+        /* Multiple Pics Table Cell Stack styling */
+        .pic-stack { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 150px; }
+        .pic-cell { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; transition: transform 0.2s; }
+        .pic-cell:hover { transform: scale(1.1); z-index: 5; }
 
+        /* Multi Lightbox Setup */
         #imageLightbox {
             display: none; position: fixed; z-index: 3000; left: 0; top: 0; 
-            width: 100%; height: 100%; background: rgba(0,0,0,0.85); 
-            justify-content: center; align-items: center; cursor: zoom-out;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.9); 
+            flex-direction: column; justify-content: center; align-items: center;
         }
-        #imageLightbox img { max-width: 90%; max-height: 90%; border-radius: 10px; }
+        #lightboxContainer { display: flex; align-items: center; justify-content: center; position: relative; width: 90%; height: 80%; }
+        #lightboxImg { max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; }
+        .lightbox-btn { position: absolute; background: rgba(255,255,255,0.25); color: white; border: none; font-size: 30px; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; user-select: none; }
+        .lightbox-btn:hover { background: rgba(255,255,255,0.5); }
+        #prevBtn { left: 10px; }
+        #nextBtn { right: 10px; }
+        #lightboxCounter { color: white; margin-top: 15px; font-size: 16px; font-weight: 500; }
+        #lightboxClose { position: absolute; top: 20px; right: 20px; background: none; color: white; font-size: 35px; cursor: pointer; }
 
         #inspectionModal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
         .modal-content { background: white; margin: 30px auto; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
@@ -43,7 +55,12 @@
         .suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); max-height: 180px; overflow-y: auto; display: none; margin-top: 4px; }
         .suggestion-item { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
         .suggestion-item:hover { background: #f7f9fb; }
-        #imgPreview { max-width: 100%; max-height: 180px; display: none; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        
+        /* Multi-Preview Container */
+        #previewsContainer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .preview-wrapper { position: relative; width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+        .preview-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+        .btn-remove-preview { position: absolute; top: 2px; right: 2px; background: rgba(231, 76, 60, 0.9); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-weight: bold; }
 
         button { cursor: pointer; border: none; padding: 10px 15px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: 0.2s; }
         .btn-add { background: #27ae60; color: white; }
@@ -61,7 +78,8 @@
         .report-table th, .report-table td { border: 1px solid #e4e8ee; padding: 8px; font-size: 13px; }
         .report-table th { background: #f0f5fb; }
         .report-case { border: 1px solid #e6ebf2; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fcfdff; }
-        .report-image { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; margin-top: 8px; }
+        .report-images-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .report-image { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
         @media print { body { background: white; } .no-print { display: none !important; } .report-content { box-shadow: none; border: none; margin: 0; max-width: none; } }
         #scrollToLast { position: fixed; bottom: 25px; right: 25px; z-index: 100; background: var(--accent); color: white; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     </style>
@@ -132,7 +150,7 @@
                     <th>DECISION</th>
                     <th>CONDEMNED</th>
                     <th class="extra-col hidden-col">REASON</th>
-                    <th class="extra-col hidden-col">PIC</th>
+                    <th class="extra-col hidden-col">PICS</th>
                     <th style="width:115px">ACTIONS</th>
                 </tr>
             </thead>
@@ -156,7 +174,12 @@
                 <div class="form-group"><label>Date</label><input type="date" id="date" required></div>
                 <div class="form-group">
                     <label>Animal</label>
-                    <select id="animal"><option value="Cattle">Cattle</option><option value="Goat">Goat</option><option value="Sheep">Sheep</option></select>
+                    <select id="animal">
+                        <option value="Cattle">Cattle</option>
+                        <option value="Goat">Goat</option>
+                        <option value="Sheep">Sheep</option>
+                        <option value="S.ruminants">S.ruminants</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Breed</label>
@@ -187,15 +210,12 @@
                 <div class="form-group"><label>Condemned Part</label><input type="text" id="condemnedPart"></div>
                 <div class="form-group"><label>Reason for Condemnation</label><input type="text" id="reason"></div>
                 
-                <!-- Modified Image form group layout to incorporate a Remove button -->
+                <!-- Image Form Group -->
                 <div class="form-group">
-                    <label>Picture</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="file" id="picFile" accept="image/*" onchange="previewImage(this)" style="flex: 1;">
-                        <button type="button" id="removePicBtn" class="btn-delete" style="padding: 5px 12px; display: none;" onclick="removePicture()">Remove</button>
-                    </div>
+                    <label>Pictures (Select one or more)</label>
+                    <input type="file" id="picFile" accept="image/*" multiple onchange="previewImages(this)">
                 </div>
-                <img id="imgPreview" src="">
+                <div id="previewsContainer"></div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" id="saveBtn" class="btn-add" style="flex: 1;">Save</button>
@@ -219,8 +239,15 @@
         </div>
     </div>
 
-    <div id="imageLightbox" onclick="this.style.display='none'">
-        <img id="lightboxImg" src="">
+    <!-- Enhanced Lightbox supporting Multi-image Navigation -->
+    <div id="imageLightbox">
+        <span id="lightboxClose" onclick="closeLightbox()">&times;</span>
+        <div id="lightboxContainer">
+            <button id="prevBtn" class="lightbox-btn" onclick="prevLightboxImage(event)">&lt;</button>
+            <img id="lightboxImg" src="" alt="Case Preview">
+            <button id="nextBtn" class="lightbox-btn" onclick="nextLightboxImage(event)">&gt;</button>
+        </div>
+        <div id="lightboxCounter"></div>
     </div>
 
     <button id="scrollToLast">&#8595;</button>
@@ -250,6 +277,13 @@
         let authDone = false;
         const breedOptions = ['friesian','jersey','gurnsey','SHZ','bhp','SEA','dorper','boer','anglo-nubian','galla'];
         const colorOptions = ['black','red','grey','white','b & w','b & r','b & g'];
+
+        // Global variables tracking state for currently selected images inside lightbox
+        let currentLightboxImages = [];
+        let currentLightboxIndex = 0;
+
+        // Form state tracking array of Base64 images to write back
+        let currentFormImages = [];
 
         const fmtDate = (s) => s ? s.split('-').reverse().join('-') : '-';
         const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -363,13 +397,13 @@
             return allData.filter(d => {
                 const month = d.date ? d.date.split('-')[1] : '';
                 
-                // Determine animal filter match for standard items or S.ruminants (Goat & Sheep)
-                let animalMatches = true;
+                // Animal filter matching criteria (with S.ruminants mapping)
+                let animalMatch = true;
                 if (fA) {
                     if (fA === 'S.ruminants') {
-                        animalMatches = d.animal === 'Goat' || d.animal === 'Sheep';
+                        animalMatch = (d.animal === 'Goat' || d.animal === 'Sheep' || d.animal === 'S.ruminants');
                     } else {
-                        animalMatches = d.animal === fA;
+                        animalMatch = (d.animal === fA);
                     }
                 }
 
@@ -378,7 +412,7 @@
                     (!fDStart || (d.date && d.date >= fDStart)) &&
                     (!fDEnd || (d.date && d.date <= fDEnd)) &&
                     (!fW || getWeek(d.date) == fW) &&
-                    animalMatches &&
+                    animalMatch &&
                     (!fDs || d.decision === fDs);
             });
         };
@@ -387,36 +421,88 @@
             const filtered = getFilteredData();
             currentFilteredData = filtered;
             const extraClass = showMore ? '' : 'hidden-col';
-            document.getElementById('tableBody').innerHTML = filtered.map((d, i) => `
-                <tr>
-                    <td>${i+1}</td>
-                    <td>${d.owner || '-'}</td>
-                    <td class="extra-col ${extraClass}">${d.uid || '-'}</td>
-                    <td>${fmtDate(d.date)}</td>
-                    <td>${getWeek(d.date)}</td>
-                    <td>${d.animal || '-'}</td>
-                    <td class="extra-col ${extraClass}">${d.breed || '-'}</td>
-                    <td>${d.color || '-'}</td>
-                    <td>${d.sex || '-'}</td>
-                    <td>${d.decision || '-'}</td>
-                    <td>${d.condemnedPart || '-'}</td>
-                    <td class="extra-col ${extraClass}">${d.reason || '-'}</td>
-                    <td class="extra-col ${extraClass}">
-                        ${d.imageUrl ? `<img src="${d.imageUrl}" class="pic-cell" onclick="viewImage('${d.imageUrl}')">` : '-'}
-                    </td>
-                    <td>
-                        ${ (currentUser && currentUser.isAdmin) ? (`<button class="btn-edit" onclick="editEntry('${d.key}')">Edit</button>
-                        <button class="btn-delete" onclick="deleteEntry('${d.key}')">Del</button>`) : '-' }
-                    </td>
-                </tr>
-            `).join('');
+            document.getElementById('tableBody').innerHTML = filtered.map((d, i) => {
+                const images = d.imageUrls || (d.imageUrl ? [d.imageUrl] : []);
+                const imagesJSON = JSON.stringify(images).replace(/"/g, '&quot;');
+                
+                let picCellHtml = '-';
+                if (images.length > 0) {
+                    picCellHtml = `<div class="pic-stack">` + 
+                        images.map((img, idx) => `
+                            <img src="${img}" class="pic-cell" onclick="viewImages(${imagesJSON}, ${idx})">
+                        `).join('') + 
+                    `</div>`;
+                }
+
+                return `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${d.owner || '-'}</td>
+                        <td class="extra-col ${extraClass}">${d.uid || '-'}</td>
+                        <td>${fmtDate(d.date)}</td>
+                        <td>${getWeek(d.date)}</td>
+                        <td>${d.animal || '-'}</td>
+                        <td class="extra-col ${extraClass}">${d.breed || '-'}</td>
+                        <td>${d.color || '-'}</td>
+                        <td>${d.sex || '-'}</td>
+                        <td>${d.decision || '-'}</td>
+                        <td>${d.condemnedPart || '-'}</td>
+                        <td class="extra-col ${extraClass}">${d.reason || '-'}</td>
+                        <td class="extra-col ${extraClass}">${picCellHtml}</td>
+                        <td>
+                            ${ (currentUser && currentUser.isAdmin) ? (`<button class="btn-edit" onclick="editEntry('${d.key}')">Edit</button>
+                            <button class="btn-delete" onclick="deleteEntry('${d.key}')">Del</button>`) : '-' }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
             document.getElementById('totalCount').innerText = filtered.length;
         };
 
-        window.viewImage = (url) => {
-            document.getElementById('lightboxImg').src = url;
+        window.viewImages = (imagesArray, startIdx = 0) => {
+            currentLightboxImages = imagesArray || [];
+            currentLightboxIndex = startIdx;
+            if (currentLightboxImages.length === 0) return;
+            updateLightbox();
             document.getElementById('imageLightbox').style.display = 'flex';
         };
+
+        const updateLightbox = () => {
+            const img = document.getElementById('lightboxImg');
+            const prev = document.getElementById('prevBtn');
+            const next = document.getElementById('nextBtn');
+            const counter = document.getElementById('lightboxCounter');
+
+            img.src = currentLightboxImages[currentLightboxIndex];
+            counter.innerText = `Image ${currentLightboxIndex + 1} of ${currentLightboxImages.length}`;
+
+            prev.style.display = currentLightboxImages.length > 1 ? 'block' : 'none';
+            next.style.display = currentLightboxImages.length > 1 ? 'block' : 'none';
+        };
+
+        window.prevLightboxImage = (e) => {
+            e.stopPropagation();
+            if (currentLightboxImages.length <= 1) return;
+            currentLightboxIndex = (currentLightboxIndex - 1 + currentLightboxImages.length) % currentLightboxImages.length;
+            updateLightbox();
+        };
+
+        window.nextLightboxImage = (e) => {
+            e.stopPropagation();
+            if (currentLightboxImages.length <= 1) return;
+            currentLightboxIndex = (currentLightboxIndex + 1) % currentLightboxImages.length;
+            updateLightbox();
+        };
+
+        window.closeLightbox = () => {
+            document.getElementById('imageLightbox').style.display = 'none';
+        };
+
+        document.getElementById('imageLightbox').addEventListener('click', (e) => {
+            if (e.target.id === 'imageLightbox' || e.target.id === 'lightboxContainer') {
+                closeLightbox();
+            }
+        });
 
         window.toggleCols = () => {
             showMore = !showMore;
@@ -446,7 +532,9 @@
             const reportTitle = fWeek ? 'Mombo Slaughter House Weekly Report' : (fMonth ? 'Mombo Slaughter House Monthly Report' : 'Mombo Slaughter House Report');
             const coverageDates = records.map(r => r.date).filter(Boolean).sort();
             const dateRange = coverageDates.length ? `${fmtDate(coverageDates[0])} to ${fmtDate(coverageDates[coverageDates.length - 1])}` : 'No date range';
-            const animalSummary = ['Cattle','Goat','Sheep'].map(animal => {
+            
+            // For statistical reporting, we count S.ruminants specifically or separate them by database tag.
+            const animalSummary = ['Cattle','Goat','Sheep','S.ruminants'].map(animal => {
                 const animalRecords = records.filter(r => r.animal === animal);
                 const males = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'male').length;
                 const females = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'female').length;
@@ -461,6 +549,15 @@
             });
 
             const buildCaseHtml = (r, idx) => {
+                const images = r.imageUrls || (r.imageUrl ? [r.imageUrl] : []);
+                let imagesMarkup = '<div style="font-size:12px; color:#999;">No images attached</div>';
+                
+                if (images.length > 0) {
+                    imagesMarkup = '<div class="report-images-container">' + 
+                        images.map(img => `<img class="report-image" src="${escapeHtml(img)}" alt="Condemned part image">`).join('') +
+                    '</div>';
+                }
+
                 return '<div style="margin-bottom:12px; padding:10px; background:white; border:1px solid #e4e8ee; border-radius:6px;">' +
                     '<div style="font-size:12px; color:#556; margin-bottom:8px;">' +
                     '<strong>Case ' + (idx + 1) + '</strong> - Owner: ' + escapeHtml(r.owner || 'Unknown') + ' - Date: ' + escapeHtml(r.date || 'No date') + '</div>' +
@@ -469,7 +566,7 @@
                     '<tr><td><strong>Reason:</strong></td><td>' + escapeHtml(r.reason || (r.decision || 'Inspection finding')) + '</td></tr>' +
                     '<tr><td><strong>Decision:</strong></td><td>' + escapeHtml(r.decision || '-') + '</td></tr>' +
                     '</table>' +
-                    (r.imageUrl ? '<img style="width:160px; max-height:120px; object-fit:cover; border-radius:6px; border:1px solid #ddd; margin-top:8px;" src="' + escapeHtml(r.imageUrl) + '" alt="Condemned part image">' : '<div style="font-size:12px; color:#999;">No image attached</div>') +
+                    imagesMarkup +
                     '</div>';
             };
 
@@ -580,7 +677,8 @@
         .case-meta { font-size: 12px; color: #556; margin-bottom: 8px; }
         .case-table { width: 100%; font-size: 13px; margin-bottom: 8px; border-collapse: collapse; }
         .case-table td { padding: 4px 6px; }
-        .case-img { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; margin-top: 8px; display: block; }
+        .report-images-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .report-image { width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; display: block; }
         .no-image { font-size: 12px; color: #999; margin-top: 4px; }
         .header-block { border-bottom: 2px solid #eee; padding-bottom: 12px; margin-bottom: 16px; }
         .header-meta { color: #7f8c8d; font-size: 13px; margin: 6px 0; }
@@ -636,10 +734,8 @@
 
         window.openModal = (key = null, data = null) => {
             const form = document.getElementById('inspectionForm');
-            const preview = document.getElementById('imgPreview');
             const saveBtn = document.getElementById('saveBtn');
             const updateBtn = document.getElementById('updateBtn');
-            const removePicBtn = document.getElementById('removePicBtn');
             
             if (!currentUser) { alert('Not authenticated'); return; }
             if (!key && !currentUser.isAdmin) { alert('You do not have permission to add records.'); return; }
@@ -652,60 +748,56 @@
             saveBtn.style.display = 'inline-block';
             updateBtn.style.display = key ? 'inline-block' : 'none';
             if (!currentUser || !currentUser.isAdmin) { saveBtn.style.display = 'none'; updateBtn.style.display = 'none'; }
-            document.getElementById('picFile').value = '';
             
+            document.getElementById('picFile').value = '';
+            currentFormImages = [];
+
             if(data) {
                 ['owner','uid','date','animal','breed','color','sex','decision','condemnedPart','reason'].forEach(k => {
                     const el = document.getElementById(k); if(el) el.value = data[k] || '';
                 });
-                form.dataset.img = data.imageUrl || '';
-                if(data.imageUrl) { 
-                    preview.src = data.imageUrl; 
-                    preview.style.display = 'block'; 
-                    removePicBtn.style.display = 'inline-block'; // Show remove button if image exists
+                
+                if (data.imageUrls && Array.isArray(data.imageUrls)) {
+                    currentFormImages = [...data.imageUrls];
+                } else if (data.imageUrl) {
+                    currentFormImages = [data.imageUrl];
                 }
-                else { 
-                    preview.style.display = 'none'; 
-                    removePicBtn.style.display = 'none';
-                }
-            } else { 
-                form.dataset.img = ''; 
-                preview.style.display = 'none'; 
-                removePicBtn.style.display = 'none';
             }
+            
+            renderFormImagePreviews();
             document.getElementById('inspectionModal').style.display = 'block';
         };
 
         window.closeModal = () => document.getElementById('inspectionModal').style.display = 'none';
 
-        window.previewImage = (input) => {
-            const preview = document.getElementById('imgPreview');
-            const form = document.getElementById('inspectionForm');
-            const removePicBtn = document.getElementById('removePicBtn');
-            if (input.files && input.files[0]) {
-                form.dataset.img = '';
-                const reader = new FileReader();
-                reader.onload = (e) => { 
-                    preview.src = e.target.result; 
-                    preview.style.display = 'block'; 
-                    removePicBtn.style.display = 'inline-block'; // Show remove button on file selection
-                };
-                reader.readAsDataURL(input.files[0]);
+        window.previewImages = async (input) => {
+            if (input.files && input.files.length > 0) {
+                for (let i = 0; i < input.files.length; i++) {
+                    try {
+                        const base64Str = await resizeImageToDataUrl(input.files[i]);
+                        currentFormImages.push(base64Str);
+                    } catch (err) {
+                        alert("An image could not be processed.");
+                    }
+                }
+                input.value = '';
+                renderFormImagePreviews();
             }
         };
 
-        // Added window scope function to trigger picture removal
-        window.removePicture = () => {
-            const preview = document.getElementById('imgPreview');
-            const form = document.getElementById('inspectionForm');
-            const picFile = document.getElementById('picFile');
-            const removePicBtn = document.getElementById('removePicBtn');
-            
-            picFile.value = ''; // Reset file input element
-            form.dataset.img = ''; // Reset existing base64 string tracking
-            preview.src = '';
-            preview.style.display = 'none';
-            removePicBtn.style.display = 'none';
+        const renderFormImagePreviews = () => {
+            const container = document.getElementById('previewsContainer');
+            container.innerHTML = currentFormImages.map((img, idx) => `
+                <div class="preview-wrapper">
+                    <img src="${img}">
+                    <button type="button" class="btn-remove-preview" onclick="removeImageFromForm(${idx})">&times;</button>
+                </div>
+            `).join('');
+        };
+
+        window.removeImageFromForm = (idx) => {
+            currentFormImages.splice(idx, 1);
+            renderFormImagePreviews();
         };
 
         document.getElementById('owner').addEventListener('input', (e) => renderOwnerSuggestions(e.target.value));
@@ -725,29 +817,29 @@
         document.getElementById('inspectionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const key = document.getElementById('editKey').value;
-            const file = document.getElementById('picFile').files[0];
-            const form = document.getElementById('inspectionForm');
             const action = e.submitter && e.submitter.id === 'updateBtn' ? 'update' : 'save';
+            
             const data = {
                 owner: document.getElementById('owner').value, uid: document.getElementById('uid').value,
                 date: document.getElementById('date').value, animal: document.getElementById('animal').value,
                 breed: document.getElementById('breed').value, color: document.getElementById('color').value,
                 sex: document.getElementById('sex').value, decision: document.getElementById('decision').value,
                 condemnedPart: document.getElementById('condemnedPart').value, reason: document.getElementById('reason').value,
-                imageUrl: form.dataset.img || '',
+                imageUrls: currentFormImages,
+                imageUrl: currentFormImages[0] || '',
                 timestamp: Date.now()
             };
-            const saveAction = async (final) => {
-                try {
-                    if (action === 'update' && key) { await update(ref(db, 'inspections/' + key), final); }
-                    else { await push(dbRef, final); }
-                    window.closeModal();
-                } catch (err) { alert("Error saving data"); }
-            };
-            if (file) {
-                try { data.imageUrl = await resizeImageToDataUrl(file); await saveAction(data); }
-                catch (err) { alert("Image could not be prepared. Please try another image."); }
-            } else { saveAction(data); }
+            
+            try {
+                if (action === 'update' && key) { 
+                    await update(ref(db, 'inspections/' + key), data); 
+                } else { 
+                    await push(dbRef, data); 
+                }
+                window.closeModal();
+            } catch (err) { 
+                alert("Error saving data"); 
+            }
         });
 
         window.editEntry = (k) => {
