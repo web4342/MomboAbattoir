@@ -97,7 +97,11 @@
             <div class="filter-item"><label>Week #:</label><input type="number" id="fWeek" oninput="applyFilters()"></div>
             <div class="filter-item"><label>Animal:</label>
                 <select id="fAnimal" onchange="applyFilters()">
-                    <option value="">All</option><option value="Cattle">Cattle</option><option value="Goat">Goat</option><option value="Sheep">Sheep</option>
+                    <option value="">All</option>
+                    <option value="Cattle">Cattle</option>
+                    <option value="Goat">Goat</option>
+                    <option value="Sheep">Sheep</option>
+                    <option value="S.ruminants">S.ruminants</option>
                 </select>
             </div>
             <div class="filter-item"><label>Decision:</label>
@@ -358,12 +362,23 @@
             const fDs = document.getElementById('fDecision').value;
             return allData.filter(d => {
                 const month = d.date ? d.date.split('-')[1] : '';
+                
+                // Determine animal filter match for standard items or S.ruminants (Goat & Sheep)
+                let animalMatches = true;
+                if (fA) {
+                    if (fA === 'S.ruminants') {
+                        animalMatches = d.animal === 'Goat' || d.animal === 'Sheep';
+                    } else {
+                        animalMatches = d.animal === fA;
+                    }
+                }
+
                 return (!fO || (d.owner && d.owner.toLowerCase().includes(fO))) &&
                     (!fM || month === fM) &&
                     (!fDStart || (d.date && d.date >= fDStart)) &&
                     (!fDEnd || (d.date && d.date <= fDEnd)) &&
                     (!fW || getWeek(d.date) == fW) &&
-                    (!fA || d.animal === fA) &&
+                    animalMatches &&
                     (!fDs || d.decision === fDs);
             });
         };
