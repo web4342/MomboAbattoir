@@ -533,13 +533,24 @@
             const coverageDates = records.map(r => r.date).filter(Boolean).sort();
             const dateRange = coverageDates.length ? `${fmtDate(coverageDates[0])} to ${fmtDate(coverageDates[coverageDates.length - 1])}` : 'No date range';
             
-            // For statistical reporting, we count S.ruminants specifically or separate them by database tag.
-            const animalSummary = ['Cattle','Goat','Sheep','S.ruminants'].map(animal => {
-                const animalRecords = records.filter(r => r.animal === animal);
-                const males = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'male').length;
-                const females = animalRecords.filter(r => (r.sex || '').toLowerCase() === 'female').length;
-                return { animal, males, females, total: animalRecords.length };
+            // Explicitly define the rows we want to show in the Summary table
+            const summaryCategories = ['Cattle', 'Goat', 'Sheep', 'S.ruminants'];
+            
+            const animalSummary = summaryCategories.map(category => {
+                let matchedRecords;
+                if (category === 'S.ruminants') {
+                    // S.ruminants acts as a cumulative summary combining Goat, Sheep, and explicit S.ruminants records
+                    matchedRecords = records.filter(r => r.animal === 'Goat' || r.animal === 'Sheep' || r.animal === 'S.ruminants');
+                } else {
+                    // Cattle, Goat, and Sheep rows each keep their specific, individual counts
+                    matchedRecords = records.filter(r => r.animal === category);
+                }
+                
+                const males = matchedRecords.filter(r => (r.sex || '').toLowerCase() === 'male').length;
+                const females = matchedRecords.filter(r => (r.sex || '').toLowerCase() === 'female').length;
+                return { category, males, females, total: matchedRecords.length };
             });
+
             const condemnationCases = records.filter(r => (r.decision || '').toLowerCase().includes('condemn') || (r.decision || '').toLowerCase().includes('partial'));
             const condemnByAnimal = {};
             condemnationCases.forEach(r => {
@@ -614,7 +625,16 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${animalSummary.map(item => `<tr><td style="padding:12px; border:1px solid #e4e8ee;"><strong>${escapeHtml(item.animal)}</strong></td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.males}</td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.females}</td><td style="padding:12px; text-align:center; border:1px solid #e4e8ee; font-weight:700; background:#f0f5fb;">${item.total}</td></tr>`).join('')}
+                        ${animalSummary.map(item => `
+                            <tr style="${item.category === 'S.ruminants' ? 'background:#eef5fc; font-weight:700;' : ''}">
+                                <td style="padding:12px; border:1px solid #e4e8ee;">
+                                    <strong>${escapeHtml(item.category)}</strong>
+                                </td>
+                                <td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.males}</td>
+                                <td style="padding:12px; text-align:center; border:1px solid #e4e8ee;">${item.females}</td>
+                                <td style="padding:12px; text-align:center; border:1px solid #e4e8ee; font-weight:700; background:${item.category === 'S.ruminants' ? '#d9e8f5' : '#f0f5fb'};">${item.total}</td>
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
                 <h3 style="margin:24px 0 12px; color:#2c3e50; border-bottom:2px solid #e4e8ee; padding-bottom:8px;">Condemnation Analysis</h3>
